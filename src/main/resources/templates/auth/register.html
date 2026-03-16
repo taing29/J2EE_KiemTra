@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Đăng ký - EduPortal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg: #0d0f14; --bg2: #141720; --bg3: #1c2030;
+            --card: #1a1d27; --border: #2a2d3e;
+            --accent: #6366f1; --accent2: #818cf8; --accent3: #4f46e5;
+            --red: #ef4444;
+            --text: #e2e8f0; --text2: #94a3b8; --text3: #64748b;
+            --radius: 12px; --radius-sm: 8px;
+        }
+        body {
+            font-family: 'Be Vietnam Pro', sans-serif;
+            background: var(--bg); color: var(--text);
+            min-height: 100vh;
+            display: flex; align-items: center; justify-content: center;
+            padding: 20px;
+        }
+        .auth-wrapper { width: 100%; max-width: 420px; }
+        .auth-logo { text-align: center; margin-bottom: 28px; }
+        .auth-logo-icon { font-size: 36px; display: block; margin-bottom: 8px; }
+        .auth-logo-title {
+            font-size: 26px; font-weight: 700;
+            background: linear-gradient(135deg, #818cf8, #6366f1);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .form-card {
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: 16px; padding: 40px;
+        }
+        .form-title { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+        .form-subtitle { color: var(--text2); font-size: 14px; margin-bottom: 20px; }
+        .role-info {
+            display: flex; align-items: center; gap: 8px;
+            padding: 10px 14px;
+            background: rgba(99,102,241,0.08);
+            border: 1px solid rgba(99,102,241,0.2);
+            border-radius: var(--radius-sm);
+            font-size: 13px; color: var(--accent2);
+            margin-bottom: 20px;
+        }
+        .form-group { margin-bottom: 18px; }
+        .form-label {
+            display: block; font-size: 13px; font-weight: 600;
+            color: var(--text2); margin-bottom: 6px;
+            text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .form-control {
+            width: 100%; padding: 11px 14px;
+            background: var(--bg3); border: 1px solid var(--border);
+            border-radius: var(--radius-sm); color: var(--text);
+            font-size: 14px; font-family: inherit; outline: none;
+            transition: border-color 0.2s;
+        }
+        .form-control:focus { border-color: var(--accent); }
+        .btn-submit {
+            width: 100%; padding: 12px; background: var(--accent);
+            color: #fff; border: none; border-radius: var(--radius-sm);
+            font-size: 15px; font-weight: 600; cursor: pointer;
+            font-family: inherit; margin-top: 8px; transition: background 0.2s;
+        }
+        .btn-submit:hover { background: var(--accent3); }
+        .alert {
+            padding: 12px 16px; border-radius: var(--radius-sm);
+            font-size: 14px; font-weight: 500; margin-bottom: 16px;
+        }
+        .alert-danger {
+            background: rgba(239,68,68,0.1);
+            border: 1px solid rgba(239,68,68,0.3); color: #fca5a5;
+        }
+        .auth-footer { text-align: center; margin-top: 20px; color: var(--text2); font-size: 14px; }
+        .auth-footer a { color: var(--accent2); text-decoration: none; font-weight: 600; }
+        .password-wrap { position: relative; }
+        .pwd-toggle {
+            position: absolute; right: 12px; top: 50%;
+            transform: translateY(-50%);
+            background: none; border: none; cursor: pointer; color: var(--text3);
+        }
+    </style>
+</head>
+<body>
+<div class="auth-wrapper">
+    <div class="auth-logo">
+        <span class="auth-logo-icon">🎓</span>
+        <div class="auth-logo-title">EduPortal</div>
+    </div>
+
+    <div class="form-card">
+        <h2 class="form-title">Tạo tài khoản</h2>
+        <p class="form-subtitle">Đăng ký để bắt đầu học</p>
+
+        <div th:if="${errorMsg}" class="alert alert-danger" th:text="${errorMsg}"></div>
+
+        <div class="role-info">
+            ℹ️ Tài khoản mới sẽ có quyền <strong>&nbsp;STUDENT&nbsp;</strong> mặc định
+        </div>
+
+        <form th:action="@{/auth/register}" method="post">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+
+            <div class="form-group">
+                <label class="form-label">Tên đăng nhập *</label>
+                <input type="text" name="username" class="form-control"
+                       placeholder="Ít nhất 3 ký tự..." required autofocus/>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Mật khẩu *</label>
+                <div class="password-wrap">
+                    <input type="password" name="password" id="reg-pwd"
+                           class="form-control" placeholder="Ít nhất 6 ký tự..." required/>
+                    <button type="button" class="pwd-toggle" onclick="togglePwd()">👁</button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Email *</label>
+                <input type="email" name="email" class="form-control"
+                       placeholder="example@email.com" required/>
+            </div>
+
+            <button type="submit" class="btn-submit">Đăng ký tài khoản</button>
+        </form>
+    </div>
+
+    <div class="auth-footer">
+        Đã có tài khoản? <a th:href="@{/auth/login}">Đăng nhập</a>
+    </div>
+</div>
+<script>
+    function togglePwd() {
+        const p = document.getElementById('reg-pwd');
+        p.type = p.type === 'password' ? 'text' : 'password';
+    }
+</script>
+</body>
+</html>

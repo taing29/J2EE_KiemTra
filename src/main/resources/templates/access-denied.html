@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Truy cập bị từ chối</title>
+    <th:block th:replace="~{fragments/header :: styles}"/>
+    <style>
+        body { display: flex; align-items: center; justify-content: center; min-height: 100vh; text-align: center; padding: 20px; }
+    </style>
+</head>
+<body>
+<div>
+    <div style="font-size:72px;margin-bottom:16px;">🚫</div>
+    <h1 style="font-size:28px;font-weight:700;margin-bottom:12px;">Truy cập bị từ chối</h1>
+    <p style="color:var(--text2);margin-bottom:24px;max-width:360px;">Bạn không có quyền truy cập trang này. Vui lòng đăng nhập với tài khoản phù hợp.</p>
+    <div style="display:flex;gap:12px;justify-content:center;">
+        <a th:href="@{/home}" class="btn btn-primary">🏠 Về trang chủ</a>
+        <a th:href="@{/auth/login}" class="btn btn-outline">🔑 Đăng nhập</a>
+    </div>
+</div>
+</body>
+</html>

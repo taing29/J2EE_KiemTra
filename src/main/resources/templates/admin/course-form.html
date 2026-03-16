@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Thêm học phần - Admin</title>
+    <th:block th:replace="~{fragments/header :: styles}"/>
+    <style>
+        .form-wrapper { max-width: 600px; margin: 0 auto; }
+        .file-upload-area { border: 2px dashed var(--border); border-radius: var(--radius-sm); padding: 32px; text-align: center; cursor: pointer; transition: all var(--transition); }
+        .file-upload-area:hover { border-color: var(--accent); background: rgba(99,102,241,0.03); }
+        .file-upload-area.dragover { border-color: var(--accent); background: rgba(99,102,241,0.05); }
+        #preview-img { max-width: 100%; max-height: 200px; border-radius: var(--radius-sm); display: none; margin: 12px auto 0; }
+    </style>
+</head>
+<body>
+<th:block th:replace="~{fragments/header :: navbar}"/>
+
+<div class="main-container">
+    <div class="form-wrapper">
+        <!-- Breadcrumb -->
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:24px;font-size:13px;color:var(--text3);">
+            <a th:href="@{/admin/courses}" style="color:var(--accent2);text-decoration:none;">⚙ Quản lý</a>
+            <span>›</span>
+            <span style="color:var(--text);">Thêm học phần mới</span>
+        </div>
+
+        <div class="form-card">
+            <h2 class="form-title">➕ Thêm học phần mới</h2>
+            <p class="form-subtitle" style="margin-bottom:24px;">Điền đầy đủ thông tin học phần</p>
+
+            <div th:if="${errorMsg}" class="alert alert-danger" th:text="${errorMsg}"></div>
+
+            <form th:action="@{/admin/courses/add}" method="post"
+                  th:object="${courseDTO}" enctype="multipart/form-data">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+
+                <div class="form-group">
+                    <label class="form-label">Tên học phần *</label>
+                    <input type="text" th:field="*{name}"
+                           th:classappend="${#fields.hasErrors('name')} ? 'is-invalid' : ''"
+                           class="form-control" placeholder="VD: Lập trình Java nâng cao" autofocus/>
+                    <div class="invalid-feedback" th:if="${#fields.hasErrors('name')}" th:errors="*{name}"></div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                    <div class="form-group">
+                        <label class="form-label">Số tín chỉ *</label>
+                        <input type="number" th:field="*{credits}" min="1" max="10"
+                               th:classappend="${#fields.hasErrors('credits')} ? 'is-invalid' : ''"
+                               class="form-control" placeholder="VD: 3"/>
+                        <div class="invalid-feedback" th:if="${#fields.hasErrors('credits')}" th:errors="*{credits}"></div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Danh mục</label>
+                        <select th:field="*{categoryId}" class="form-control form-select">
+                            <option value="">-- Chọn danh mục --</option>
+                            <option th:each="cat : ${categories}"
+                                    th:value="${cat.id}"
+                                    th:text="${cat.name}"></option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Giảng viên *</label>
+                    <input type="text" th:field="*{lecturer}"
+                           th:classappend="${#fields.hasErrors('lecturer')} ? 'is-invalid' : ''"
+                           class="form-control" placeholder="VD: GV. Nguyễn Văn A"/>
+                    <div class="invalid-feedback" th:if="${#fields.hasErrors('lecturer')}" th:errors="*{lecturer}"></div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Hình ảnh minh họa</label>
+                    <div class="file-upload-area" onclick="document.getElementById('imageFile').click()">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="1.5" style="margin:0 auto 8px;display:block;">
+                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                            <polyline points="17 8 12 3 7 8"/>
+                            <line x1="12" y1="3" x2="12" y2="15"/>
+                        </svg>
+                        <p style="color:var(--text2);font-size:14px;">Nhấp để chọn ảnh hoặc kéo thả vào đây</p>
+                        <p style="color:var(--text3);font-size:12px;margin-top:4px;">PNG, JPG, WEBP tối đa 10MB</p>
+                        <img id="preview-img" src="" alt="Preview"/>
+                    </div>
+                    <input type="file" id="imageFile" name="imageFile" accept="image/*"
+                           style="display:none" onchange="previewImage(this)"/>
+                </div>
+
+                <div style="display:flex;gap:12px;margin-top:8px;">
+                    <button type="submit" class="btn btn-primary" style="flex:1;justify-content:center;padding:12px;">
+                        ✓ Lưu học phần
+                    </button>
+                    <a th:href="@{/admin/courses}" class="btn btn-outline" style="padding:12px 20px;">Hủy</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function previewImage(input) {
+        const file = input.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = document.getElementById('preview-img');
+                img.src = e.target.result;
+                img.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+    const uploadArea = document.querySelector('.file-upload-area');
+    uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('dragover'); });
+    uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
+    uploadArea.addEventListener('drop', e => {
+        e.preventDefault(); uploadArea.classList.remove('dragover');
+        const file = e.dataTransfer.files[0];
+        if (file && file.type.startsWith('image/')) {
+            const input = document.getElementById('imageFile');
+            const dt = new DataTransfer(); dt.items.add(file); input.files = dt.files;
+            previewImage(input);
+        }
+    });
+</script>
+<th:block th:replace="~{fragments/header :: scripts}"/>
+</body>
+</html>

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Học phần của tôi - EduPortal</title>
+  <th:block th:replace="~{fragments/header :: styles}"/>
+  <style>
+    .enrollment-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 20px; }
+    .enrollment-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; transition: all 0.25s ease; display: flex; flex-direction: column; }
+    .enrollment-card:hover { border-color: var(--border-light); transform: translateY(-3px); box-shadow: var(--shadow); }
+    .card-img { width: 100%; height: 140px; background: linear-gradient(135deg, var(--bg2), var(--bg3)); display: flex; align-items: center; justify-content: center; font-size: 40px; overflow: hidden; position: relative; }
+    .card-img img { width: 100%; height: 100%; object-fit: cover; }
+    .enrolled-overlay { position: absolute; top: 10px; right: 10px; background: rgba(34,197,94,0.9); color: #fff; padding: 3px 10px; border-radius: 50px; font-size: 11px; font-weight: 700; }
+    .card-body { padding: 16px; flex: 1; }
+    .card-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 10px; line-height: 1.4; }
+    .card-meta { display: flex; flex-direction: column; gap: 5px; }
+    .meta-row { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text2); }
+    .card-footer { padding: 12px 16px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .empty-state { text-align: center; padding: 80px 20px; color: var(--text2); }
+    .empty-icon { font-size: 60px; margin-bottom: 16px; }
+    .summary-bar { background: linear-gradient(135deg, rgba(99,102,241,0.1), rgba(99,102,241,0.05)); border: 1px solid rgba(99,102,241,0.2); border-radius: var(--radius); padding: 20px 24px; margin-bottom: 28px; display: flex; gap: 32px; flex-wrap: wrap; }
+    .summary-item { display: flex; flex-direction: column; gap: 2px; }
+    .summary-value { font-size: 26px; font-weight: 700; color: var(--accent2); }
+    .summary-label { font-size: 12px; color: var(--text2); }
+  </style>
+</head>
+<body>
+<th:block th:replace="~{fragments/header :: navbar}"/>
+
+<div class="main-container">
+
+  <div class="page-header">
+    <div>
+      <h1 class="page-header-title">📚 Học phần của tôi</h1>
+      <p class="page-header-subtitle">Danh sách các học phần bạn đã đăng ký</p>
+    </div>
+    <a th:href="@{/home}" class="btn btn-primary">+ Đăng ký thêm</a>
+  </div>
+
+  <!-- Summary -->
+  <div th:if="${!enrollments.empty}" class="summary-bar">
+    <div class="summary-item">
+      <div class="summary-value" th:text="${enrollments.size()}">0</div>
+      <div class="summary-label">Học phần đã đăng ký</div>
+    </div>
+    <div class="summary-item">
+      <div class="summary-value"
+           th:text="${#aggregates.sum(enrollments.![course.credits])}">0</div>
+      <div class="summary-label">Tổng tín chỉ</div>
+    </div>
+  </div>
+
+  <!-- Empty state -->
+  <div th:if="${enrollments.empty}" class="empty-state">
+    <div class="empty-icon">📋</div>
+    <h3 style="color:var(--text);margin-bottom:8px;">Bạn chưa đăng ký học phần nào</h3>
+    <p style="margin-bottom:20px;">Hãy khám phá và đăng ký các học phần phù hợp với bạn</p>
+    <a th:href="@{/home}" class="btn btn-primary">Khám phá học phần</a>
+  </div>
+
+  <!-- Grid -->
+  <div th:unless="${enrollments.empty}" class="enrollment-grid">
+    <div th:each="enrollment : ${enrollments}" class="enrollment-card">
+      <div class="card-img">
+        <img th:if="${enrollment.course.image != null and !enrollment.course.image.isBlank()}"
+             th:src="@{'/images/uploads/' + ${enrollment.course.image}}"
+             th:alt="${enrollment.course.name}"/>
+        <span th:unless="${enrollment.course.image != null and !enrollment.course.image.isBlank()}">📖</span>
+        <span class="enrolled-overlay">✓ Đã đăng ký</span>
+      </div>
+      <div class="card-body">
+        <div class="card-title" th:text="${enrollment.course.name}"></div>
+        <div class="card-meta">
+          <div class="meta-row">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <span th:text="${enrollment.course.lecturer}"></span>
+          </div>
+          <div class="meta-row">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            <span th:text="${enrollment.course.credits} + ' tín chỉ'"></span>
+          </div>
+          <div th:if="${enrollment.course.category != null}" class="meta-row">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 10h16M4 14h16M4 18h7"/></svg>
+            <span th:text="${enrollment.course.category.name}"></span>
+          </div>
+        </div>
+      </div>
+      <div class="card-footer">
+                <span style="font-size:12px;color:var(--text3);">
+                    📅 Đăng ký: <span th:text="${enrollment.enrollDate}"></span>
+                </span>
+        <span class="badge badge-green">Đang học</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<th:block th:replace="~{fragments/header :: scripts}"/>
+</body>
+</html>
