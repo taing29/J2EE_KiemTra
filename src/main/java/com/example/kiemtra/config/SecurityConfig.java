@@ -3,17 +3,17 @@ package com.example.kiemtra.config;
 import com.example.kiemtra.security.CustomUserDetailsService;
 import com.example.kiemtra.security.OAuth2LoginSuccessHandler;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.ProviderManager;
-import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 
+@Slf4j
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
@@ -28,25 +28,22 @@ public class SecurityConfig {
     }
 
     @Bean
-    public AuthenticationManager authenticationManager() {
-        // ✅ Spring Boot 4.x: DaoAuthenticationProvider nhận UserDetailsService qua constructor
-        DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService);
-        provider.setPasswordEncoder(passwordEncoder());
-        return new ProviderManager(provider);
-    }
-
-    @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+
+        // ✅ Dùng AuthenticationManagerBuilder của HttpSecurity
+        // KHÔNG tạo ProviderManager thủ công — tránh mất OAuth2LoginAuthenticationProvider
+        AuthenticationManagerBuilder authBuilder =
+                http.getSharedObject(AuthenticationManagerBuilder.class);
+        authBuilder
+                .userDetailsService(userDetailsService)
+                .passwordEncoder(passwordEncoder());
+
         http
-                .authenticationManager(authenticationManager())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/css/**", "/js/**", "/images/**", "/uploads/**").permitAll()
                         .requestMatchers("/auth/register", "/auth/login").permitAll()
-                        // Câu 4: /admin/** chỉ ADMIN
                         .requestMatchers("/admin/**").hasRole("ADMIN")
-                        // Câu 4: /courses cho tất cả
                         .requestMatchers("/courses", "/home", "/").permitAll()
-                        // Câu 4: /enroll/** chỉ STUDENT
                         .requestMatchers("/enroll/**").hasRole("STUDENT")
                         .requestMatchers("/student/**").hasRole("STUDENT")
                         .anyRequest().authenticated()
@@ -62,10 +59,15 @@ public class SecurityConfig {
                         .permitAll()
                 )
                 // Câu 9: OAuth2 Google
+                // ✅ KHÔNG gọi .authenticationManager() thủ công
                 .oauth2Login(oauth2 -> oauth2
-                        .loginPage("/auth/login")
                         .successHandler(oAuth2LoginSuccessHandler)
-                        .failureUrl("/auth/login?error=true")
+                        .failureHandler((request, response, exception) -> {
+                            log.error("=== OAuth2 Login THẤT BẠI ===");
+                            log.error("Exception type: {}", exception.getClass().getName());
+                            log.error("Exception message: {}", exception.getMessage());
+                            response.sendRedirect("/auth/login?oauth2error=true");
+                        })
                 )
                 .logout(logout -> logout
                         .logoutUrl("/auth/logout")

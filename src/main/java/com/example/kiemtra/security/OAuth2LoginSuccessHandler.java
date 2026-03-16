@@ -8,9 +8,12 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.core.user.OAuth2User;
-import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
+import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -18,9 +21,10 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
-public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
+public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
     private final StudentRepository studentRepository;
     private final RoleRepository roleRepository;
@@ -29,48 +33,99 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
     public void onAuthenticationSuccess(HttpServletRequest request,
                                         HttpServletResponse response,
                                         Authentication authentication) throws IOException, ServletException {
+        try {
+            log.info("=== OAuth2 Login Success Handler triggered ===");
+            log.info("Authentication class: {}", authentication.getClass().getName());
 
-        OAuth2User oAuth2User = (OAuth2User) authentication.getPrincipal();
-        String email = oAuth2User.getAttribute("email");
-        String name = oAuth2User.getAttribute("name");
-        String googleId = oAuth2User.getAttribute("sub");
+            OAuth2User oAuth2User = (OAuth2User) authentication.getPrincipal();
 
-        // Tìm hoặc tạo student từ Google account
-        Student student = studentRepository.findByOauth2ProviderAndOauth2Id("google", googleId)
-                .orElseGet(() -> {
-                    // Kiểm tra nếu email đã tồn tại thì liên kết
-                    return studentRepository.findByEmail(email).orElseGet(() -> {
-                        Student newStudent = new Student();
-                        // Tạo username từ email
-                        String username = email.split("@")[0];
-                        // Đảm bảo username unique
-                        if (studentRepository.existsByUsername(username)) {
-                            username = username + "_" + UUID.randomUUID().toString().substring(0, 5);
-                        }
-                        newStudent.setUsername(username);
-                        newStudent.setEmail(email);
-                        newStudent.setPassword(""); // Không dùng password với OAuth2
-                        newStudent.setOauth2Provider("google");
-                        newStudent.setOauth2Id(googleId);
+            String email    = oAuth2User.getAttribute("email");
+            String googleId = oAuth2User.getAttribute("sub");
+            String name     = oAuth2User.getAttribute("name");
 
-                        Role studentRole = roleRepository.findByName("STUDENT")
-                                .orElseGet(() -> roleRepository.save(new Role("STUDENT")));
-                        Set<Role> roles = new HashSet<>();
-                        roles.add(studentRole);
-                        newStudent.setRoles(roles);
+            log.info("Google user info - email: {}, googleId: {}, name: {}", email, googleId, name);
+            log.info("OAuth2User attributes: {}", oAuth2User.getAttributes());
 
-                        return studentRepository.save(newStudent);
+            if (email == null || googleId == null) {
+                log.error("Email hoặc googleId null! email={}, googleId={}", email, googleId);
+                response.sendRedirect("/auth/login?oauth2error=true");
+                return;
+            }
+
+            // Tìm hoặc tạo student
+            Student student = studentRepository
+                    .findByOauth2ProviderAndOauth2Id("google", googleId)
+                    .orElseGet(() -> {
+                        log.info("Không tìm thấy theo googleId, tìm theo email: {}", email);
+                        return studentRepository
+                                .findByEmail(email)
+                                .orElseGet(() -> {
+                                    log.info("Không tìm thấy email, tạo student mới...");
+                                    return createNewStudent(email, googleId);
+                                });
                     });
-                });
 
-        // Cập nhật oauth2Id nếu chưa có
-        if (student.getOauth2Id() == null) {
-            student.setOauth2Provider("google");
-            student.setOauth2Id(googleId);
-            studentRepository.save(student);
+            log.info("Student found/created: id={}, username={}, roles={}",
+                    student.getStudentId(), student.getUsername(), student.getRoles());
+
+            // Cập nhật oauth2Id nếu chưa có
+            if (student.getOauth2Id() == null) {
+                student.setOauth2Provider("google");
+                student.setOauth2Id(googleId);
+                studentRepository.save(student);
+                log.info("Đã cập nhật oauth2Id cho student: {}", student.getUsername());
+            }
+
+            // Tạo CustomUserDetails và set lại Authentication
+            CustomUserDetails userDetails = new CustomUserDetails(student);
+            log.info("Authorities: {}", userDetails.getAuthorities());
+
+            OAuth2AuthenticationToken newAuth = new OAuth2AuthenticationToken(
+                    oAuth2User,
+                    userDetails.getAuthorities(),
+                    ((OAuth2AuthenticationToken) authentication).getAuthorizedClientRegistrationId()
+            );
+
+            SecurityContextHolder.getContext().setAuthentication(newAuth);
+            request.getSession().setAttribute(
+                    "SPRING_SECURITY_CONTEXT",
+                    SecurityContextHolder.getContext()
+            );
+
+            log.info("=== OAuth2 Login thành công, redirect về /home ===");
+            response.sendRedirect("/home");
+
+        } catch (Exception e) {
+            log.error("=== LỖI trong OAuth2LoginSuccessHandler ===", e);
+            log.error("Exception message: {}", e.getMessage());
+            response.sendRedirect("/auth/login?oauth2error=true");
         }
+    }
 
-        setDefaultTargetUrl("/home");
-        super.onAuthenticationSuccess(request, response, authentication);
+    private Student createNewStudent(String email, String googleId) {
+        Student newStudent = new Student();
+
+        String base = email.split("@")[0].replaceAll("[^a-zA-Z0-9_]", "");
+        String username = base;
+        if (studentRepository.existsByUsername(username)) {
+            username = base + "_" + UUID.randomUUID().toString().substring(0, 5);
+        }
+        log.info("Tạo student mới với username: {}, email: {}", username, email);
+
+        newStudent.setUsername(username);
+        newStudent.setEmail(email);
+        newStudent.setPassword("");
+        newStudent.setOauth2Provider("google");
+        newStudent.setOauth2Id(googleId);
+
+        Role studentRole = roleRepository.findByName("STUDENT")
+                .orElseGet(() -> roleRepository.save(new Role("STUDENT")));
+        Set<Role> roles = new HashSet<>();
+        roles.add(studentRole);
+        newStudent.setRoles(roles);
+
+        Student saved = studentRepository.save(newStudent);
+        log.info("Đã tạo student mới: id={}", saved.getStudentId());
+        return saved;
     }
 }
